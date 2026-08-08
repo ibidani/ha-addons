@@ -1,52 +1,114 @@
 ---
 name: CI/CD
 
+# Builds, signs, and publishes the app images with the official
+# home-assistant/builder actions. Runs on any push to `main`; pull requests
+# build but do not publish.
+
 on:
-  workflow_dispatch:
-    inputs:
-      branch:
-        description: "Working branch"
-        type: string
-        required: false
-        default: ""
   push:
     branches:
       - main
   pull_request:
-    branches:
-      - main
 
-# Cancel superseded runs on the same ref to avoid wasted builds.
+permissions:
+  contents: read
+  id-token: write
+  packages: write
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: read
-
 jobs:
-  auto-lock:
+  init:
+    name: Prepare build
     runs-on: ubuntu-latest
-    name: Pin Docker Images
-    permissions:
-      contents: write
-    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.normalize.outputs.version }}
+      image_name: ${{ steps.normalize.outputs.image_name }}
+      registry_prefix: ${{ steps.normalize.outputs.registry_prefix }}
+      name: ${{ steps.normalize.outputs.name }}
+      description: ${{ steps.normalize.outputs.description }}
+      url: ${{ steps.normalize.outputs.url }}
+      architectures: ${{ steps.info.outputs.architectures }}
+      matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
-      # Only run the pin job on pushes (it writes back commits); PRs/fork checks
-      # stay read-only and skip the auto-commit step.
-      - if: github.event_name == 'push'
-        uses: actions/checkout@v6
-      - if: github.event_name == 'push'
-        uses: crazyrokr/gha-workflows/ha-addon-auto-locker@master
-        with:
-          branch: ${{ github.event.inputs.branch }}
-          lookup_sources: Dockerfile
+      - uses: actions/checkout@v6
 
-  run-builder:
-    needs: auto-lock
-    uses: crazyrokr/gha-workflows/.github/workflows/ha-addon-cicd.yaml@master
-    secrets: inherit
-    permissions:
-      contents: read
-      id-token: write
-      packages: write
+      - name: Get app info
+        id: info
+        uses: home-assistant/actions/helpers/info@master
+        with:
+          path: "./obsidian"
+
+      - name: Normalize app info
+        id: normalize
+        run: |
+          image="${{ steps.info.outputs.image }}"
+          echo "image_name=${image##*/}" >> "$GITHUB_OUTPUT"
+          echo "registry_prefix=${image%/*}" >> "$GITHUB_OUTPUT"
+          echo "version=${{ steps.info.outputs.version }}" >> "$GITHUB_OUTPUT"
+          echo "name=${{ steps.info.outputs.name }}" >> "$GITHUB_OUTPUT"
+          echo "description=${{ steps.info.outputs.description }}" >> "$GITHUB_OUTPUT"
+          url="${{ steps.info.outputs.url }}"
+          if [[ -n "$url" && "$url" != "null" ]]; then
+            echo "url=${url}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Prepare build matrix
+        id: matrix
+        uses: home-assistant/builder/actions/prepare-multi-arch-matrix@2026.03.2
+        with:
+          architectures: ${{ steps.info.outputs.architectures }}
+          image-name: ${{ steps.normalize.outputs.image_name }}
+          registry-prefix: ${{ steps.normalize.outputs.registry_prefix }}
+
+  build:
+    name: Build ${{ matrix.arch }} image
+    needs: init
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.init.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Build image
+        uses: home-assistant/builder/actions/build-image@2026.03.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          arch: ${{ matrix.arch }}
+          container-registry-password: ${{ secrets.GITHUB_TOKEN }}
+          context: "./obsidian"
+          image: ${{ matrix.image }}
+          image-tags: |
+            ${{ needs.init.outputs.version }}
+            latest
+          labels: |
+            io.hass.type=app
+            io.hass.name=${{ needs.init.outputs.name }}
+            io.hass.description=${{ needs.init.outputs.description }}
+            ${{ needs.init.outputs.url && format('io.hass.url={0}', needs.init.outputs.url) || '' }}
+          push: ${{ github.event_name == 'push' }}
+
+  publish:
+    name: Publish multi-arch manifest
+    needs: [init, build]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish multi-arch manifest
+        uses: home-assistant/builder/actions/publish-multi-arch-manifest@2026.03.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          architectures: ${{ needs.init.outputs.architectures }}
+          container-registry-password: ${{ secrets.GITHUB_TOKEN }}
+          image-name: ${{ needs.init.outputs.image_name }}
+          image-tags: |
+            ${{ needs.init.outputs.version }}
+            latest
