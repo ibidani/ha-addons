@@ -55,7 +55,7 @@ the `image:` field tells it which published image to pull.
 - **Image builds** happen in the source repo, currently
   [ibidani/ha-obsidian](https://github.com/ibidani/ha-obsidian): push to
   `master` there — its CI auto-pins base images, builds both architectures,
-  signs each with Cosign, and publishes to `ghcr.io/ibidani/ha-obsidian`.
+  and publishes to `ghcr.io/ibidani/ha-obsidian`.
 - **Publish a new app version:** bump `version` in the source repo's
   `obsidian/config.yaml`, then sync the same `version` here so the store
   advertises the new tag.
