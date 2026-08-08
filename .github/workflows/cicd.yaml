@@ -1,0 +1,52 @@
+---
+name: CI/CD
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Working branch"
+        type: string
+        required: false
+        default: ""
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+# Cancel superseded runs on the same ref to avoid wasted builds.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  auto-lock:
+    runs-on: ubuntu-latest
+    name: Pin Docker Images
+    permissions:
+      contents: write
+    timeout-minutes: 10
+    steps:
+      # Only run the pin job on pushes (it writes back commits); PRs/fork checks
+      # stay read-only and skip the auto-commit step.
+      - if: github.event_name == 'push'
+        uses: actions/checkout@v6
+      - if: github.event_name == 'push'
+        uses: crazyrokr/gha-workflows/ha-addon-auto-locker@master
+        with:
+          branch: ${{ github.event.inputs.branch }}
+          lookup_sources: Dockerfile
+
+  run-builder:
+    needs: auto-lock
+    uses: crazyrokr/gha-workflows/.github/workflows/ha-addon-cicd.yaml@master
+    secrets: inherit
+    permissions:
+      contents: read
+      id-token: write
+      packages: write
