@@ -48,5 +48,9 @@ environment:
   PIXELFLUX_WAYLAND: "false"
   SELKIES_UI_SHOW_SIDEBAR: "false"
   NO_DECOR: "true"
+  # Cap the virtual framebuffer: the default Xvfb screen (15360x8640) uses
+  # ~500 MB of RAM; matching MAX_RES cuts the container footprint almost in
+  # half with no functional difference for the ingress UI.
+  MAX_RES: "3840x2160"
 
 image: "ghcr.io/ibidani/ha-obsidian"

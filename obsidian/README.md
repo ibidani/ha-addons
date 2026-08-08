@@ -66,6 +66,7 @@ environment:
   PIXELFLUX_WAYLAND: "false"
   SELKIES_UI_SHOW_SIDEBAR: "false"
   NO_DECOR: "true"
+  MAX_RES: "3840x2160"
 ```
 
 | Variable | Default | Description |
@@ -77,6 +78,7 @@ environment:
 | `PIXELFLUX_WAYLAND` | `false` | Keep the default X11/compositor path. |
 | `SELKIES_UI_SHOW_SIDEBAR` | `false` | Hides the extra control sidebar of the streaming UI. |
 | `NO_DECOR` | `true` | Removes desktop window decorations. |
+| `MAX_RES` | `3840x2160` | Max virtual screen / framebuffer size. Lower reduces RAM (~500 MB at the default 15360x8640); the default here already keeps it far below that. |
 
 ### Ports
 
