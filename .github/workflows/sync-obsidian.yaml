@@ -1,0 +1,48 @@
+---
+name: Sync obsidian manifest
+
+# Keep the store's obsidian/config.yaml in lockstep with the source repo
+# (ibidani/ha-obsidian). The Supervisor reads the manifest — and therefore
+# the image version — from THIS repo, so every release there must be
+# mirrored here. Runs hourly and on demand; commits only when changed.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 * * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-obsidian
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Fetch source manifest
+        run: |
+          curl -fsSL \
+            -o obsidian/config.yaml \
+            https://raw.githubusercontent.com/ibidani/ha-obsidian/master/obsidian/config.yaml
+
+      - name: Validate YAML
+        run: |
+          python3 -c "import yaml,sys; yaml.safe_load(open('obsidian/config.yaml')); print('yaml ok')"
+
+      - name: Commit if changed
+        run: |
+          if ! git diff --quiet -- obsidian/config.yaml; then
+            git add obsidian/config.yaml
+            git -c user.name="ibidani[bot]" \
+                -c user.email="ibidani[bot]@users.noreply.github.com" \
+                commit -m "Sync obsidian manifest from ibidani/ha-obsidian"
+            git push
+            echo "synced"
+          else
+            echo "already in sync"
+          fi
