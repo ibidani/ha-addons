@@ -42,10 +42,11 @@ No changes to your system configuration, MQTT, or integrations are required.
 
 ### If you are building from this repository
 
-1. Clone this repository and make sure `.github/docker-lock.json` and `obsidian/config.yaml` point at the image you intend to publish.
-2. Run the CI (push to `master` triggers it), which builds, signs, and publishes the
-   multi-architecture image to `ghcr.io/ibidani/ha-obsidian`.
-3. Point Home Assistant at the `ibidani/ha-addons` repository (Settings → Apps → App Store → add URL) and install as above.
+This repository only carries the store manifest (`config.yaml`, icons, docs).
+The image itself is built, signed, and published from the source repository
+[ibidani/ha-obsidian](https://github.com/ibidani/ha-obsidian) — its CI on
+`master` publishes the multi-architecture image to
+`ghcr.io/ibidani/ha-obsidian`.
 
 ## Configuration
 

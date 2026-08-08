@@ -2,7 +2,7 @@ name: Obsidian
 version: "0.8.0"
 slug: obsidian
 description: Runs Obsidian within your Home Assistant setup providing integration of live-features
-url: https://github.com/ibidani/ha-addons/tree/main/obsidian
+url: https://github.com/ibidani/ha-obsidian/tree/master/obsidian
 webui: http://[HOST]:[PORT:3000]
 panel_icon: "mdi:note-edit"
 arch:
